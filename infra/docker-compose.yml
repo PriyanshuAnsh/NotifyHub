@@ -1,22 +1,60 @@
-name: 'NotifyHub'
-services:
-  db:
-    container_name: "docker-mysql"
-    image: mysql:8.4
-    ports:
-      - "${MYSQL_HOST_PORT}:3306"
-    volumes:
-      - db_data:/var/lib/mysql
-    env_file:
-      - ../.env
+name: "NotifyHub"
 
+services:
   rabbitmq:
-    container_name: "docker-rabbitmq"
-    image: "rabbitmq:4.2.2-management-alpine"
+    image: rabbitmq:4.2.2-management-alpine
+    env_file:
+      - .env
     ports:
       - "${RABBITMQ_HOST_PORT}:5672"
       - "${RABBITMQ_MGMT_PORT}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_USER}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASSWORD}"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
     env_file:
-      - ../.env
+      - .env
+    ports:
+      - "${DB_HOST_PORT}:5432"
+    environment:
+      POSTGRES_DB: "${DB_NAME}"
+      POSTGRES_USER: "${DB_USER}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD}"
+    volumes:
+      - notifyhub_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  notifyhub:
+    build:
+      context: ..
+      dockerfile: notifyhub/Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "${APP_PORT}:8080"
+    environment:
+      # Force docker-network hostnames (never localhost inside containers)
+      RABBITMQ_HOST: "rabbitmq"
+      DB_HOST: "postgres"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
-  db_data:
+  notifyhub_pgdata:
