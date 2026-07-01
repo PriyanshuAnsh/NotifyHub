@@ -1,5 +1,7 @@
 # NotifyHub
 
+[![CI](https://github.com/PriyanshuAnsh/NotifyHub/actions/workflows/ci.yml/badge.svg)](https://github.com/PriyanshuAnsh/NotifyHub/actions/workflows/ci.yml)
+
 ## Overview
 NotifyHub is a centralized backend notification platform designed to reliably deliver real-time and asynchronous notifications to users without coupling notification delivery logic to core business services.
 

@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-tests:
+    name: Backend tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: notifyhub
+          POSTGRES_USER: notifyhub
+          POSTGRES_PASSWORD: notifyhub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U notifyhub -d notifyhub"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+      rabbitmq:
+        image: rabbitmq:4.2.2-management-alpine
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      # Point the app at the service containers (localhost, standard ports).
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: notifyhub
+      DB_USER: notifyhub
+      DB_PASSWORD: notifyhub
+      RABBITMQ_HOST: localhost
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Run tests with coverage
+        working-directory: backend
+        run: |
+          chmod +x mvnw
+          ./mvnw -B test
+
+      - name: Upload JaCoCo coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: backend/target/site/jacoco
+          if-no-files-found: warn
