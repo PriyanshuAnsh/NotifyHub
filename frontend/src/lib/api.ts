@@ -2,6 +2,14 @@ import type { CreateNotificationRequest, Notification } from './types'
 
 const BASE = '/api/v1/notifications'
 
+// Dev console key; override per environment with VITE_API_KEY. In a public
+// deployment the console would sit behind real user auth rather than ship a key.
+const API_KEY = import.meta.env.VITE_API_KEY ?? 'dev-local-key'
+
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+  return { 'X-API-Key': API_KEY, ...extra }
+}
+
 export class ApiError extends Error {
   readonly status: number
   readonly fields?: Record<string, string>
@@ -32,7 +40,7 @@ async function parse<T>(res: Response): Promise<T> {
 }
 
 export function listNotifications(): Promise<Notification[]> {
-  return fetch(BASE).then((r) => parse<Notification[]>(r))
+  return fetch(BASE, { headers: authHeaders() }).then((r) => parse<Notification[]>(r))
 }
 
 export function createNotification(
@@ -40,12 +48,15 @@ export function createNotification(
 ): Promise<Notification> {
   return fetch(BASE, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(input),
   }).then((r) => parse<Notification>(r))
 }
 
-/** URL for the recipient's live delivery stream (consumed via EventSource). */
+/**
+ * URL for the recipient's live delivery stream (consumed via EventSource).
+ * EventSource can't set headers, so the key travels as a query parameter.
+ */
 export function streamUrl(user: string): string {
-  return `${BASE}/stream?user=${encodeURIComponent(user)}`
+  return `${BASE}/stream?user=${encodeURIComponent(user)}&apiKey=${encodeURIComponent(API_KEY)}`
 }
