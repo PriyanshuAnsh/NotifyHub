@@ -1,12 +1,13 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { useCreateNotification } from '../hooks/useNotifications'
 import { ApiError } from '../lib/api'
+import type { Notification } from '../lib/types'
 
 /**
  * Submits a notification intent. Mirrors the backend contract; a subject
  * containing "fail" intentionally drives the retry / dead-letter path.
  */
-export function ComposeForm({ onSent }: { onSent: (toEmail: string) => void }) {
+export function ComposeForm({ onCreated }: { onCreated: (n: Notification) => void }) {
   const [toEmail, setToEmail] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
@@ -20,8 +21,8 @@ export function ComposeForm({ onSent }: { onSent: (toEmail: string) => void }) {
     create.mutate(
       { toEmail, subject, body },
       {
-        onSuccess: () => {
-          onSent(toEmail)
+        onSuccess: (created) => {
+          onCreated(created)
           setSubject('')
           setBody('')
         },

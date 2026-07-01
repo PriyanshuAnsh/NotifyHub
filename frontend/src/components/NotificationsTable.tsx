@@ -8,11 +8,15 @@ export function NotificationsTable({
   isLoading,
   isError,
   error,
+  selectedId,
+  onSelect,
 }: {
   notifications: Notification[]
   isLoading: boolean
   isError: boolean
   error?: Error | null
+  selectedId?: string | null
+  onSelect?: (n: Notification) => void
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-line bg-surface">
@@ -55,7 +59,11 @@ export function NotificationsTable({
             {notifications.map((n) => (
               <tr
                 key={n.id}
-                className="border-t border-line transition-colors hover:bg-raised"
+                onClick={() => onSelect?.(n)}
+                aria-selected={selectedId === n.id}
+                className={`cursor-pointer border-t border-line transition-colors hover:bg-raised ${
+                  selectedId === n.id ? 'bg-accent-soft/60' : ''
+                }`}
               >
                 <Td className="font-mono text-xs tabular-nums text-ink-muted">
                   {shortId(n.id)}
