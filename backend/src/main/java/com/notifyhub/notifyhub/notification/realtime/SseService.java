@@ -24,7 +24,7 @@ public class SseService {
     private final Map<String, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
     public SseEmitter subscribe(String user) {
-        SseEmitter emitter = new SseEmitter(TIMEOUT_MS);
+        SseEmitter emitter = newEmitter();
         List<SseEmitter> list = emitters.computeIfAbsent(user, k -> new CopyOnWriteArrayList<>());
         list.add(emitter);
 
@@ -42,7 +42,7 @@ public class SseService {
 
     public void push(String user, String eventName, Object payload) {
         List<SseEmitter> list = emitters.get(user);
-        if (list == null || list.isEmpty()) {
+        if (list == null) {
             return;
         }
         for (SseEmitter emitter : list) {
@@ -53,6 +53,11 @@ public class SseService {
                 remove(user, emitter);
             }
         }
+    }
+
+    /** Overridable so tests can supply an emitter that fails on send. */
+    protected SseEmitter newEmitter() {
+        return new SseEmitter(TIMEOUT_MS);
     }
 
     private void remove(String user, SseEmitter emitter) {
