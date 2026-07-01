@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>NotifyHub — Architecture &amp; Workflow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #16181d; --muted: #5a5e6b; --faint: #9a9ea9;
+    --line: #e6e6ec; --line-strong: #d5d5dd;
+    --accent: #5b5bd6; --accent-soft: #eeeefb;
+    --sent: #12805c; --pending: #b7791f; --failed: #d64545;
+    --canvas: #fbfbfd; --raised: #f6f6f9;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0; color: var(--ink); background: #fff;
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 10.5pt; line-height: 1.55;
+  }
+  @page { size: A4; margin: 16mm 15mm; }
+  h1, h2, h3 { font-family: "Space Grotesk", sans-serif; letter-spacing: -0.01em; color: var(--ink); }
+  h2 { font-size: 17pt; margin: 0 0 4px; }
+  h3 { font-size: 12pt; margin: 18px 0 6px; }
+  p { margin: 0 0 9px; }
+  code, .mono { font-family: "IBM Plex Mono", monospace; font-size: 9pt; }
+  code { background: var(--raised); padding: 1px 5px; border-radius: 4px; color: #2f3140; }
+  a { color: var(--accent); text-decoration: none; }
+  .muted { color: var(--muted); }
+  .section { page-break-before: always; padding-top: 4px; }
+  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 8pt; letter-spacing: 0.18em;
+             text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+  .avoid-break { break-inside: avoid; }
+
+  /* Cover */
+  .cover { height: 247mm; display: flex; flex-direction: column; }
+  .cover-top { flex: 1; }
+  .mark { width: 54px; height: 54px; border-radius: 14px; background: var(--ink);
+          display: flex; align-items: center; justify-content: center; }
+  .cover h1 { font-size: 40pt; line-height: 1.05; margin: 40px 0 10px; font-weight: 700; }
+  .cover .sub { font-size: 14pt; color: var(--muted); font-family: "Space Grotesk"; }
+  .cover-meta { border-top: 1px solid var(--line-strong); padding-top: 14px;
+                display: flex; justify-content: space-between; font-size: 9pt; color: var(--muted); }
+  .chips { margin-top: 22px; }
+  .chip { display: inline-block; border: 1px solid var(--line-strong); border-radius: 999px;
+          padding: 3px 11px; font-size: 8.5pt; margin: 0 6px 6px 0; color: var(--muted);
+          font-family: "IBM Plex Mono"; }
+
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 9.5pt; }
+  th, td { text-align: left; padding: 6px 9px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); font-weight: 600; }
+  tr td { color: #2b2d38; }
+
+  .pill { display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 8pt;
+          font-weight: 600; font-family: "IBM Plex Mono"; }
+  .p-pending { background: #fbf1de; color: var(--pending); }
+  .p-sent { background: #e6f4ee; color: var(--sent); }
+  .p-failed { background: #fbe9e9; color: var(--failed); }
+
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; margin: 10px 0; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  ol.steps { margin: 6px 0; padding-left: 0; list-style: none; counter-reset: s; }
+  ol.steps > li { counter-increment: s; position: relative; padding: 7px 0 7px 34px; border-bottom: 1px solid var(--line); }
+  ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 7px;
+     width: 22px; height: 22px; background: var(--accent-soft); color: var(--accent);
+     border-radius: 7px; font-family: "IBM Plex Mono"; font-size: 9pt; font-weight: 600;
+     display: flex; align-items: center; justify-content: center; }
+  ol.steps b { font-family: "Space Grotesk"; }
+  .lede { font-size: 11.5pt; color: var(--muted); }
+  .foot { margin-top: 26px; padding-top: 10px; border-top: 1px solid var(--line);
+          font-size: 8pt; color: var(--faint); font-family: "IBM Plex Mono"; }
+  .kv { font-size: 9pt; }
+  .kv b { font-family: "IBM Plex Mono"; font-weight: 500; color: var(--ink); }
+</style>
+</head>
+<body>
+
+<!-- ══════════ COVER ══════════ -->
+<section class="cover">
+  <div class="cover-top">
+    <div class="mark">
+      <svg width="30" height="30" viewBox="0 0 30 30"><line x1="5" y1="15" x2="25" y2="15" stroke="#fff" stroke-width="2.2"/><circle cx="10" cy="15" r="3" fill="#5b5bd6"/><circle cx="21" cy="15" r="3.6" fill="#fff"/></svg>
+    </div>
+    <h1>NotifyHub</h1>
+    <div class="sub">Architecture &amp; Workflow</div>
+    <p class="muted" style="margin-top:16px; max-width:150mm;">
+      A centralized backend notification platform that delivers notifications reliably and
+      asynchronously, decoupled from producer business logic — built on the transactional
+      outbox pattern, RabbitMQ, and Server-Sent Events.
+    </p>
+    <div class="chips">
+      <span class="chip">Java 21 · Spring Boot 3.4</span>
+      <span class="chip">PostgreSQL</span>
+      <span class="chip">RabbitMQ</span>
+      <span class="chip">React 19 · Vite</span>
+      <span class="chip">Outbox pattern</span>
+      <span class="chip">SSE</span>
+      <span class="chip">API-key auth</span>
+      <span class="chip">Gmail SMTP</span>
+    </div>
+  </div>
+  <div class="cover-meta">
+    <span>github.com/PriyanshuAnsh/NotifyHub</span>
+    <span>Modular monolith · Backend-first</span>
+    <span>2026-07-01</span>
+  </div>
+</section>
+
+<!-- ══════════ OVERVIEW ══════════ -->
+<section class="section">
+  <div class="eyebrow">01 · Overview</div>
+  <h2>What the system is</h2>
+  <p class="lede">NotifyHub turns a single "please notify this user" request into a reliable,
+    observable delivery — without blocking or coupling the caller's workflow.</p>
+  <p>Producers submit a notification intent over REST. NotifyHub persists it as the source of
+    truth, hands delivery to an asynchronous pipeline, and reports the final state
+    (<span class="pill p-sent">SENT</span> or <span class="pill p-failed">FAILED</span>) both in
+    the database and live over Server-Sent Events. Delivery failures are retried and, once
+    exhausted, dead-lettered — never lost, never silently dropped.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">Design principles</h3>
+      <ul style="margin:0; padding-left:18px;">
+        <li><b>Database is the source of truth</b> — state is persisted explicitly.</li>
+        <li><b>Asynchronous, non-blocking</b> — the caller returns immediately.</li>
+        <li><b>Failure-aware</b> — bounded retries then explicit dead-lettering.</li>
+        <li><b>Best-effort real-time</b> — SSE augments, never replaces, the DB.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Guarantees</h3>
+      <ul style="margin:0; padding-left:18px;">
+        <li><b>No lost events</b> — outbox write is in the same transaction as the notification.</li>
+        <li><b>At-least-once delivery</b> — the relay retries unpublished events.</li>
+        <li><b>Terminal states are recorded</b> — DLQ handler marks exhausted sends FAILED.</li>
+        <li><b>Transport ≠ state</b> — RabbitMQ carries work; Postgres holds truth.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ ARCHITECTURE DIAGRAM ══════════ -->
+<section class="section">
+  <div class="eyebrow">02 · System architecture</div>
+  <h2>How a request travels across layers</h2>
+  <p class="muted">Solid arrows = the delivery path. Dashed = live updates &amp; the failure branch.
+    The database sits at the center as the source of truth; RabbitMQ is transport only.</p>
+
+  <div class="avoid-break" style="margin-top:8px;">
+  <svg viewBox="0 0 760 866" width="100%" font-family="IBM Plex Sans, sans-serif">
+    <defs>
+      <marker id="arw" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L7,3 L0,6 Z" fill="#5b5bd6"/>
+      </marker>
+      <marker id="arwG" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L7,3 L0,6 Z" fill="#9a9ea9"/>
+      </marker>
+      <marker id="arwR" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L7,3 L0,6 Z" fill="#d64545"/>
+      </marker>
+    </defs>
+
+    <!-- lane labels -->
+    <text x="18" y="40" font-size="10" fill="#9a9ea9" font-family="IBM Plex Mono">CLIENTS</text>
+    <text x="18" y="150" font-size="10" fill="#9a9ea9" font-family="IBM Plex Mono">API</text>
+    <text x="18" y="250" font-size="10" fill="#9a9ea9" font-family="IBM Plex Mono">SERVICE</text>
+    <text x="18" y="352" font-size="10" fill="#9a9ea9" font-family="IBM Plex Mono">DATA</text>
+    <text x="18" y="452" font-size="10" fill="#9a9ea9" font-family="IBM Plex Mono">RELAY</text>
+    <text x="18" y="556" font-size="10" fill="#9a9ea9" font-family="IBM Plex Mono">BROKER</text>
+    <text x="18" y="660" font-size="10" fill="#9a9ea9" font-family="IBM Plex Mono">WORKER</text>
+    <text x="18" y="792" font-size="10" fill="#9a9ea9" font-family="IBM Plex Mono">CHANNEL</text>
+
+    <!-- CLIENTS -->
+    <g>
+      <rect x="150" y="18" width="200" height="46" rx="10" fill="#fff" stroke="#d5d5dd"/>
+      <text x="250" y="39" text-anchor="middle" font-size="12" font-weight="600" fill="#16181d">Producer service</text>
+      <text x="250" y="54" text-anchor="middle" font-size="9" fill="#5a5e6b">POST notification intent</text>
+
+      <rect x="420" y="18" width="200" height="46" rx="10" fill="#fff" stroke="#d5d5dd"/>
+      <text x="520" y="39" text-anchor="middle" font-size="12" font-weight="600" fill="#16181d">React console</text>
+      <text x="520" y="54" text-anchor="middle" font-size="9" fill="#5a5e6b">create · list · live feed</text>
+    </g>
+
+    <!-- API -->
+    <rect x="150" y="118" width="470" height="52" rx="10" fill="#fff" stroke="#d5d5dd"/>
+    <text x="385" y="139" text-anchor="middle" font-size="12" font-weight="600" fill="#16181d">REST API  ·  X-API-Key filter</text>
+    <text x="385" y="156" text-anchor="middle" font-size="9" fill="#5a5e6b" font-family="IBM Plex Mono">NotificationController · NotificationStreamController</text>
+
+    <!-- SERVICE -->
+    <rect x="150" y="218" width="470" height="52" rx="10" fill="#eeeefb" stroke="#c7c7f0"/>
+    <text x="385" y="239" text-anchor="middle" font-size="12" font-weight="600" fill="#3d3d9e">NotificationService  ·  @Transactional</text>
+    <text x="385" y="256" text-anchor="middle" font-size="9" fill="#5a5e6b">one transaction writes the notification + the outbox event</text>
+
+    <!-- DATA -->
+    <rect x="150" y="320" width="470" height="60" rx="10" fill="#fff" stroke="#d5d5dd"/>
+    <text x="385" y="342" text-anchor="middle" font-size="12" font-weight="600" fill="#16181d">PostgreSQL — source of truth</text>
+    <text x="250" y="362" text-anchor="middle" font-size="9" fill="#5a5e6b" font-family="IBM Plex Mono">notifications</text>
+    <text x="250" y="374" text-anchor="middle" font-size="8" fill="#b7791f" font-family="IBM Plex Mono">status: PENDING</text>
+    <text x="520" y="362" text-anchor="middle" font-size="9" fill="#5a5e6b" font-family="IBM Plex Mono">outbox_events</text>
+    <text x="520" y="374" text-anchor="middle" font-size="8" fill="#b7791f" font-family="IBM Plex Mono">status: PENDING</text>
+    <line x1="385" y1="326" x2="385" y2="374" stroke="#ececf1"/>
+
+    <!-- RELAY -->
+    <rect x="150" y="426" width="470" height="52" rx="10" fill="#fff" stroke="#d5d5dd"/>
+    <text x="385" y="447" text-anchor="middle" font-size="12" font-weight="600" fill="#16181d">OutboxRelay  ·  @Scheduled poll (2s)</text>
+    <text x="385" y="464" text-anchor="middle" font-size="9" fill="#5a5e6b">reads PENDING events → publishes → marks PUBLISHED</text>
+
+    <!-- BROKER -->
+    <rect x="150" y="528" width="470" height="52" rx="10" fill="#fff" stroke="#d5d5dd"/>
+    <text x="385" y="549" text-anchor="middle" font-size="12" font-weight="600" fill="#16181d">RabbitMQ  ·  transport only</text>
+    <text x="385" y="566" text-anchor="middle" font-size="9" fill="#5a5e6b" font-family="IBM Plex Mono">notifyhub.exchange → notification.delivery.queue</text>
+
+    <!-- WORKER -->
+    <rect x="150" y="630" width="470" height="52" rx="10" fill="#fff" stroke="#d5d5dd"/>
+    <text x="385" y="651" text-anchor="middle" font-size="12" font-weight="600" fill="#16181d">DeliveryWorker  ·  @RabbitListener</text>
+    <text x="385" y="668" text-anchor="middle" font-size="9" fill="#5a5e6b">dispatch via DeliverySender, then mark result</text>
+
+    <!-- CHANNEL -->
+    <rect x="150" y="732" width="230" height="52" rx="10" fill="#fff" stroke="#d5d5dd"/>
+    <text x="265" y="753" text-anchor="middle" font-size="11" font-weight="600" fill="#16181d">Gmail SMTP</text>
+    <text x="265" y="769" text-anchor="middle" font-size="9" fill="#5a5e6b">real email · from your account</text>
+    <rect x="400" y="732" width="220" height="52" rx="10" fill="#e6f4ee" stroke="#a9d8c4"/>
+    <text x="510" y="753" text-anchor="middle" font-size="11" font-weight="600" fill="#12805c">Recipient inbox</text>
+    <text x="510" y="769" text-anchor="middle" font-size="8" fill="#12805c" font-family="IBM Plex Mono">notification → SENT</text>
+
+    <!-- FAILURE BRANCH -->
+    <rect x="642" y="630" width="104" height="154" rx="10" fill="#fbe9e9" stroke="#eab8b8"/>
+    <text x="694" y="656" text-anchor="middle" font-size="10" font-weight="600" fill="#d64545">Retry ×3</text>
+    <text x="694" y="672" text-anchor="middle" font-size="8" fill="#d64545">then</text>
+    <text x="694" y="702" text-anchor="middle" font-size="10" font-weight="600" fill="#d64545">DLQ</text>
+    <text x="694" y="726" text-anchor="middle" font-size="8" fill="#d64545">DeadLetter-</text>
+    <text x="694" y="737" text-anchor="middle" font-size="8" fill="#d64545">Worker</text>
+    <text x="694" y="762" text-anchor="middle" font-size="8" fill="#d64545" font-family="IBM Plex Mono">mark</text>
+    <text x="694" y="774" text-anchor="middle" font-size="8" fill="#d64545" font-family="IBM Plex Mono">FAILED</text>
+
+    <!-- main flow arrows -->
+    <line x1="250" y1="64"  x2="300" y2="116" stroke="#5b5bd6" stroke-width="1.6" marker-end="url(#arw)"/>
+    <line x1="520" y1="64"  x2="470" y2="116" stroke="#5b5bd6" stroke-width="1.6" marker-end="url(#arw)"/>
+    <line x1="385" y1="170" x2="385" y2="216" stroke="#5b5bd6" stroke-width="1.6" marker-end="url(#arw)"/>
+    <line x1="385" y1="270" x2="385" y2="318" stroke="#5b5bd6" stroke-width="1.6" marker-end="url(#arw)"/>
+    <line x1="385" y1="380" x2="385" y2="424" stroke="#5b5bd6" stroke-width="1.6" marker-end="url(#arw)"/>
+    <line x1="385" y1="478" x2="385" y2="526" stroke="#5b5bd6" stroke-width="1.6" marker-end="url(#arw)"/>
+    <line x1="385" y1="580" x2="385" y2="628" stroke="#5b5bd6" stroke-width="1.6" marker-end="url(#arw)"/>
+    <line x1="300" y1="682" x2="265" y2="730" stroke="#5b5bd6" stroke-width="1.6" marker-end="url(#arw)"/>
+    <line x1="380" y1="758" x2="398" y2="758" stroke="#5b5bd6" stroke-width="1.6" marker-end="url(#arw)"/>
+
+    <!-- relay reads from data (side loop) -->
+    <path d="M140,350 C120,350 120,452 148,452" fill="none" stroke="#5b5bd6" stroke-width="1.4" marker-end="url(#arw)"/>
+    <text x="70" y="404" font-size="8" fill="#5b5bd6" font-family="IBM Plex Mono">poll</text>
+
+    <!-- failure branch arrows -->
+    <line x1="620" y1="656" x2="640" y2="656" stroke="#d64545" stroke-width="1.4" marker-end="url(#arwR)"/>
+    <path d="M694,784 C694,820 250,820 250,382" fill="none" stroke="#d64545" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arwR)"/>
+
+    <!-- SSE dashed back to console -->
+    <path d="M470,656 C700,600 720,120 622,66" fill="none" stroke="#9a9ea9" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#arwG)"/>
+    <text x="700" y="360" font-size="8" fill="#9a9ea9" font-family="IBM Plex Mono" transform="rotate(90 700 360)">SSE live update</text>
+  </svg>
+  </div>
+</section>
+
+<!-- ══════════ REQUEST LIFECYCLE ══════════ -->
+<section class="section">
+  <div class="eyebrow">03 · Request lifecycle</div>
+  <h2>End to end, step by step</h2>
+  <p class="muted">What happens from the moment a producer calls <code>POST /api/v1/notifications</code>.</p>
+  <ol class="steps">
+    <li><b>Authenticate.</b> The <code>ApiKeyAuthFilter</code> checks <code>X-API-Key</code> (constant-time).
+        Missing/invalid → <code>401</code>. Valid → the request proceeds.</li>
+    <li><b>Validate.</b> <code>NotificationController</code> binds the JSON to a validated DTO
+        (email format, required fields). Violations → <code>400</code> with an RFC-7807 body.</li>
+    <li><b>Persist atomically.</b> <code>NotificationService.create()</code> runs in one transaction:
+        it saves the <code>Notification</code> as <span class="pill p-pending">PENDING</span> <i>and</i> an
+        <code>OutboxEvent</code> carrying the delivery payload. Both commit or neither does.</li>
+    <li><b>Respond immediately.</b> The API returns <code>201 Created</code> with the notification —
+        the caller is never blocked on delivery.</li>
+    <li><b>Relay.</b> <code>OutboxRelay</code> (scheduled, every 2s) finds PENDING outbox rows, publishes
+        each to RabbitMQ, and marks them <code>PUBLISHED</code>. A failed publish stays PENDING and is
+        retried next tick — at-least-once.</li>
+    <li><b>Consume &amp; deliver.</b> <code>NotificationDeliveryWorker</code> (@RabbitListener) receives the
+        task and calls the configured <code>DeliverySender</code> — a log mock or real Gmail SMTP.</li>
+    <li><b>Record result.</b> On success the notification becomes <span class="pill p-sent">SENT</span>;
+        the outcome is pushed to any connected SSE clients.</li>
+    <li><b>Failure path.</b> If the send throws, RabbitMQ retries up to 3× with backoff; still failing,
+        the message is dead-lettered. <code>DeadLetterWorker</code> marks it
+        <span class="pill p-failed">FAILED</span> and notifies over SSE.</li>
+  </ol>
+</section>
+
+<!-- ══════════ RELIABILITY ══════════ -->
+<section class="section">
+  <div class="eyebrow">04 · Reliability model</div>
+  <h2>Why nothing gets lost</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">Transactional outbox</h3>
+      <p style="margin:0">Publishing to a broker and committing to a database can't share one transaction.
+        Instead, the delivery event is written to <code>outbox_events</code> in the <i>same</i> DB
+        transaction as the notification. A separate relay publishes it afterward. If the app crashes
+        before publishing, the event is still there — it goes out on the next poll.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Retry &amp; dead-letter</h3>
+      <p style="margin:0">The listener retries a failing delivery 3× with exponential backoff. When
+        attempts are exhausted the message is rejected to a dead-letter exchange and lands on
+        <code>notification.delivery.dlq</code>, where <code>DeadLetterWorker</code> records the terminal
+        <span class="pill p-failed">FAILED</span> state. Failures are visible, not silent.</p>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>Concern</th><th>Mechanism</th><th>Outcome</th></tr></thead>
+    <tbody>
+      <tr><td>Lost publish on crash</td><td>Outbox written in the notification's transaction</td><td>Event survives; relay resends</td></tr>
+      <tr><td>Broker/publish hiccup</td><td>Event stays PENDING, re-polled</td><td>At-least-once delivery</td></tr>
+      <tr><td>Provider outage</td><td>3× retry with backoff</td><td>Transient errors self-heal</td></tr>
+      <tr><td>Permanent failure</td><td>Dead-letter queue + handler</td><td>Recorded as FAILED</td></tr>
+      <tr><td>Slow SMTP host</td><td>10s connect/read/write timeouts</td><td>Fails fast into retry path</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════ COMPONENTS ══════════ -->
+<section class="section">
+  <div class="eyebrow">05 · Components</div>
+  <h2>Backend structure</h2>
+  <table>
+    <thead><tr><th>Package</th><th>Type</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">notification.web</td><td>Controllers / DTOs</td><td>REST intake, SSE stream, validation, RFC-7807 errors</td></tr>
+      <tr><td class="mono">notification.service</td><td>Service</td><td>Transactional create (notification + outbox), reads</td></tr>
+      <tr><td class="mono">notification.domain</td><td>Entities</td><td><code>Notification</code>, <code>OutboxEvent</code> + status enums</td></tr>
+      <tr><td class="mono">notification.repository</td><td>Spring Data JPA</td><td>Persistence for notifications &amp; outbox</td></tr>
+      <tr><td class="mono">notification.outbox</td><td>Scheduled relay</td><td><code>OutboxRelay</code> — poll &amp; publish to RabbitMQ</td></tr>
+      <tr><td class="mono">notification.messaging</td><td>Broker</td><td>Rabbit config, delivery worker, dead-letter worker</td></tr>
+      <tr><td class="mono">notification.delivery</td><td>Channel seam</td><td><code>DeliverySender</code>: logging + Gmail SMTP impls</td></tr>
+      <tr><td class="mono">notification.realtime</td><td>SSE</td><td><code>SseService</code>, per-recipient emitters</td></tr>
+      <tr><td class="mono">config</td><td>Security</td><td>API-key filter + stateless security chain</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Frontend structure</h3>
+  <table>
+    <thead><tr><th>Path</th><th>Contents</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">src/lib</td><td>Types, API client (API-key + RFC-7807 aware), formatters</td></tr>
+      <tr><td class="mono">src/hooks</td><td><code>useNotifications</code> (TanStack Query), <code>useNotificationStream</code> (SSE)</td></tr>
+      <tr><td class="mono">src/components</td><td>DeliveryLane (signature view), NotificationsTable, ComposeForm, LiveFeed, NavRail, StatusPill</td></tr>
+    </tbody>
+  </table>
+  <p class="muted" style="font-size:9pt">Stack: React 19 · Vite · TypeScript · Tailwind v4 · TanStack Query. Fonts: Space Grotesk, IBM Plex Sans/Mono.</p>
+</section>
+
+<!-- ══════════ DATA + API ══════════ -->
+<section class="section">
+  <div class="eyebrow">06 · Data model &amp; API</div>
+  <h2>Persistence &amp; endpoints</h2>
+
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0" class="mono">notifications</h3>
+      <div class="kv">
+        <div><b>id</b> uuid · primary key</div>
+        <div><b>to_email</b> varchar(255)</div>
+        <div><b>subject</b> varchar(255)</div>
+        <div><b>body</b> text</div>
+        <div><b>status</b> PENDING · SENT · FAILED</div>
+        <div><b>created_at</b> · <b>updated_at</b> timestamp</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0" class="mono">outbox_events</h3>
+      <div class="kv">
+        <div><b>id</b> uuid · primary key</div>
+        <div><b>event_type</b> varchar(100)</div>
+        <div><b>payload</b> jsonb</div>
+        <div><b>status</b> PENDING · PUBLISHED · FAILED</div>
+        <div><b>created_at</b> · <b>published_at</b> timestamp</div>
+        <div class="muted" style="margin-top:4px">index on (status, created_at)</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>HTTP API</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Path</th><th>Purpose</th><th>Auth</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">POST</td><td class="mono">/api/v1/notifications</td><td>Create a notification intent</td><td>X-API-Key</td></tr>
+      <tr><td class="mono">GET</td><td class="mono">/api/v1/notifications</td><td>List notifications</td><td>X-API-Key</td></tr>
+      <tr><td class="mono">GET</td><td class="mono">/api/v1/notifications/{id}</td><td>Fetch one</td><td>X-API-Key</td></tr>
+      <tr><td class="mono">GET</td><td class="mono">/api/v1/notifications/stream</td><td>SSE delivery stream (per recipient)</td><td>apiKey query</td></tr>
+      <tr><td class="mono">GET</td><td class="mono">/actuator/health</td><td>Liveness probe</td><td>public</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════ SECURITY + DELIVERY ══════════ -->
+<section class="section">
+  <div class="eyebrow">07 · Security &amp; delivery</div>
+  <h2>Access control and the send channel</h2>
+
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">API-key authentication</h3>
+      <p style="margin:0 0 6px">Every endpoint except the health probe requires a valid
+        <code>X-API-Key</code> (the SSE stream accepts it as an <code>apiKey</code> query param, since
+        EventSource can't set headers). Keys come from env, support comma-separated rotation, and are
+        compared in constant time. Security is stateless — no sessions, CSRF disabled.</p>
+      <p class="muted" style="margin:0; font-size:8.5pt">Scope: platform-level access. Per-recipient
+        authorization (a user seeing only their own stream) would need user identity (JWT) — a
+        documented next step.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Pluggable delivery</h3>
+      <p style="margin:0 0 6px">Delivery is a single seam, the <code>DeliverySender</code> interface,
+        selected by <code>notifyhub.delivery.mode</code>:</p>
+      <div class="kv">
+        <div><b>log</b> (default) — logs the dispatch; a subject containing "fail" exercises the DLQ path.</div>
+        <div><b>smtp</b> — real email via Gmail (<code>smtp.gmail.com:587</code>, STARTTLS).</div>
+      </div>
+      <p class="muted" style="margin:6px 0 0; font-size:8.5pt">Gmail needs only <code>GMAIL_USER</code> +
+        <code>GMAIL_APP_PASSWORD</code> (a 2FA App Password); sent mail's From is that account.</p>
+    </div>
+  </div>
+
+  <h3>Runtime topology</h3>
+  <p class="muted">Postgres and RabbitMQ run as Docker containers; the app runs locally (IDE) or as a
+    third container. All configuration is env-driven with local defaults, so the app boots without a
+    hand-written <code>.env</code>.</p>
+</section>
+
+<!-- ══════════ BUILD LOG ══════════ -->
+<section class="section">
+  <div class="eyebrow">08 · What was built</div>
+  <h2>Delivery log</h2>
+  <p class="muted">Phases 2–4 of the platform plus the frontend, security, and real email — each
+    increment committed and verified end-to-end.</p>
+  <table>
+    <thead><tr><th>Commit</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">115081c</td><td>Notification pipeline — intake, persistence, outbox, RabbitMQ worker, DLQ, SSE (Phases 2–4)</td></tr>
+      <tr><td class="mono">8ca0c80</td><td>Restructure into <code>backend/</code> + <code>frontend/</code> monorepo</td></tr>
+      <tr><td class="mono">07765c3</td><td>React delivery console (Vite + Tailwind + TanStack Query)</td></tr>
+      <tr><td class="mono">6ade523</td><td>Make datasource/rabbit config runnable from an IDE without env vars</td></tr>
+      <tr><td class="mono">7511226</td><td>Real email delivery via SMTP (pluggable <code>DeliverySender</code>)</td></tr>
+      <tr><td class="mono">799952f</td><td>Add <code>.env.example</code> template</td></tr>
+      <tr><td class="mono">0206668</td><td>Require API key on all endpoints</td></tr>
+      <tr><td class="mono">b0d9c7e → b038d86</td><td>SMTP hardening, then pin delivery to Gmail</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Verified behavior</h3>
+  <ul style="margin:4px 0; padding-left:18px;">
+    <li>Normal notification: <span class="pill p-pending">PENDING</span> → relay → worker →
+        <span class="pill p-sent">SENT</span>.</li>
+    <li>Fail path: subject with "fail" → retries → DLQ → <span class="pill p-failed">FAILED</span>.</li>
+    <li>Real email delivered through SMTP to a live inbox (verified against a mail catcher).</li>
+    <li>Auth matrix: no key → 401, wrong key → 401, valid key → 200/201, health public.</li>
+  </ul>
+
+  <div class="foot">
+    NotifyHub · Architecture &amp; Workflow · generated 2026-07-01 · modular monolith, backend-first ·
+    github.com/PriyanshuAnsh/NotifyHub
+  </div>
+</section>
+
+</body>
+</html>
