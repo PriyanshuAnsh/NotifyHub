@@ -91,16 +91,67 @@ Each phase is tracked via GitHub Issues with explicit acceptance criteria.
 
 ## Project Phases
 - **Phase 0:** Architecture & System Design ✅
-- **Phase 1:** Project Setup & Core Infrastructure 🚧
-- **Phase 2:** Notification Intake & Persistence
-- **Phase 3:** Asynchronous Delivery Pipeline
-- **Phase 4:** Real-Time Notification Streaming
+- **Phase 1:** Project Setup & Core Infrastructure ✅
+- **Phase 2:** Notification Intake & Persistence ✅
+- **Phase 3:** Asynchronous Delivery Pipeline ✅
+- **Phase 4:** Real-Time Notification Streaming ✅
 - **Phase 5+:** Reliability Enhancements, Preferences, Observability
 
 ---
 
-## How to Run (Coming Soon)
-Local setup instructions will be added once Phase 1 infrastructure is complete.
+## How to Run
+
+The full stack (Postgres, RabbitMQ, application) runs via Docker Compose.
+
+```bash
+cd infra
+docker compose up --build
+```
+
+Services:
+- App: http://localhost:8080
+- RabbitMQ management UI: http://localhost:15672 (guest / guest)
+- Postgres: localhost:5432 (notifyhub / notifyhub)
+
+Health check: `curl http://localhost:8080/actuator/health`
+
+### API
+
+Create a notification (persisted, then delivered asynchronously):
+
+```bash
+curl -X POST http://localhost:8080/api/v1/notifications \
+  -H 'Content-Type: application/json' \
+  -d '{"toEmail":"user@example.com","subject":"Welcome","body":"Hello from NotifyHub"}'
+```
+
+Fetch a notification / list all:
+
+```bash
+curl http://localhost:8080/api/v1/notifications/{id}
+curl http://localhost:8080/api/v1/notifications
+```
+
+Subscribe to real-time delivery updates (SSE) for a recipient:
+
+```bash
+curl -N http://localhost:8080/api/v1/notifications/stream?user=user@example.com
+```
+
+> Delivery is **simulated**: the worker logs the send and marks the notification `SENT`.
+> A subject containing the word `fail` forces the failure path — the message is retried,
+> then dead-lettered, and the notification is marked `FAILED`.
+
+### Delivery flow
+
+1. `POST /notifications` persists a `Notification` (`PENDING`) **and** an `outbox_events` row in one transaction.
+2. `OutboxRelay` polls the outbox and publishes pending events to RabbitMQ, marking them `PUBLISHED`.
+3. `NotificationDeliveryWorker` consumes the delivery task, performs the (simulated) send, and marks the notification `SENT`.
+4. Failed deliveries retry, then dead-letter to the DLQ where `DeadLetterWorker` marks the notification `FAILED`.
+5. Outcomes are pushed to connected SSE clients (best-effort).
+
+> Note: the `contextLoads` integration test requires Postgres and RabbitMQ to be running
+> (`docker compose up` the infra first, or run tests inside the compose network).
 
 ---
 

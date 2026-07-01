@@ -33,3 +33,5 @@ build/
 
 ### Environment Variable file
 infra/.env
+# macOS
+.DS_Store
