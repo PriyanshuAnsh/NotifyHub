@@ -1,0 +1,120 @@
+@import 'tailwindcss';
+
+/* ── NotifyHub design tokens ───────────────────────────────────────────
+   Direction: "The Line" — a delivery-pipeline console.
+   Neutral canvas + type-driven UI; the status trio carries all the chroma. */
+@theme {
+  --font-display: 'Space Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+
+  --color-canvas: #fbfbfd;
+  --color-surface: #ffffff;
+  --color-raised: #f6f6f9;
+  --color-ink: #16181d;
+  --color-ink-muted: #6a6e7b;
+  --color-ink-faint: #9a9ea9;
+  --color-line: #ececf1;
+  --color-line-strong: #dcdce3;
+
+  --color-accent: #5b5bd6;
+  --color-accent-soft: #eeeefb;
+  --color-accent-ink: #3d3d9e;
+
+  --color-sent: #12805c;
+  --color-sent-soft: #e6f4ee;
+  --color-pending: #b7791f;
+  --color-pending-soft: #fbf1de;
+  --color-failed: #d64545;
+  --color-failed-soft: #fbe9e9;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-feature-settings: 'ss01';
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: #fff;
+  }
+
+  /* Numeric alignment for ids, counts, timestamps */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .input {
+    width: 100%;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-line-strong);
+    background: var(--color-surface);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .input::placeholder {
+    color: var(--color-ink-faint);
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-soft);
+  }
+}
+
+/* Quiet, single-purpose motion — respects reduced-motion below. */
+@keyframes nh-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes nh-pulse {
+  0% {
+    transform: scaleX(0);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+.animate-rise {
+  animation: nh-rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
