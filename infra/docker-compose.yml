@@ -40,7 +40,7 @@ services:
   notifyhub:
     build:
       context: ..
-      dockerfile: notifyhub/Dockerfile
+      dockerfile: backend/Dockerfile
     env_file:
       - .env
     ports:

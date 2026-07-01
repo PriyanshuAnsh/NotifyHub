@@ -99,9 +99,21 @@ Each phase is tracked via GitHub Issues with explicit acceptance criteria.
 
 ---
 
+## Repository Structure
+```
+NotifyHub/
+├── backend/     Spring Boot service (REST intake, outbox, RabbitMQ workers, SSE)
+├── frontend/    React web client (planned)
+├── infra/       Docker Compose (Postgres, RabbitMQ, backend)
+├── README.md
+└── LICENSE
+```
+
+---
+
 ## How to Run
 
-The full stack (Postgres, RabbitMQ, application) runs via Docker Compose.
+The backend stack (Postgres, RabbitMQ, application) runs via Docker Compose.
 
 ```bash
 cd infra
