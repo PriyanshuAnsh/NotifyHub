@@ -1,5 +1,6 @@
 package com.notifyhub.notifyhub.notification.messaging;
 
+import com.notifyhub.notifyhub.notification.delivery.DeliverySender;
 import com.notifyhub.notifyhub.notification.domain.Notification;
 import com.notifyhub.notifyhub.notification.realtime.NotificationEvent;
 import com.notifyhub.notifyhub.notification.realtime.SseService;
@@ -11,10 +12,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Consumes delivery tasks from RabbitMQ and performs the (simulated) send.
- * On success the notification is marked SENT and pushed over SSE. On failure the
- * exception propagates so the broker retries and, once attempts are exhausted,
- * dead-letters the message to the DLQ (see {@link DeadLetterWorker}).
+ * Consumes delivery tasks from RabbitMQ and dispatches them through the
+ * configured {@link DeliverySender}. On success the notification is marked SENT
+ * and pushed over SSE. On failure the exception propagates so the broker retries
+ * and, once attempts are exhausted, dead-letters the message to the DLQ
+ * (see {@link DeadLetterWorker}).
  */
 @Component
 public class NotificationDeliveryWorker {
@@ -22,11 +24,14 @@ public class NotificationDeliveryWorker {
     private static final Logger log = LoggerFactory.getLogger(NotificationDeliveryWorker.class);
 
     private final NotificationRepository notificationRepository;
+    private final DeliverySender deliverySender;
     private final SseService sseService;
 
     public NotificationDeliveryWorker(NotificationRepository notificationRepository,
+                                      DeliverySender deliverySender,
                                       SseService sseService) {
         this.notificationRepository = notificationRepository;
+        this.deliverySender = deliverySender;
         this.sseService = sseService;
     }
 
@@ -40,7 +45,7 @@ public class NotificationDeliveryWorker {
             return;
         }
 
-        simulateSend(message);
+        deliverySender.send(message);
 
         notification.markSent();
         notificationRepository.save(notification);
@@ -48,17 +53,5 @@ public class NotificationDeliveryWorker {
 
         sseService.push(notification.getToEmail(), "notification",
                 new NotificationEvent(notification.getId(), notification.getSubject(), notification.getStatus()));
-    }
-
-    /**
-     * Stand-in for a real channel provider. Throws for subjects containing "fail" so the
-     * retry / dead-letter path can be exercised in a demo.
-     */
-    private void simulateSend(DeliveryMessage message) {
-        log.info("Sending notification {} -> {} | subject='{}'",
-                message.notificationId(), message.toEmail(), message.subject());
-        if (message.subject() != null && message.subject().toLowerCase().contains("fail")) {
-            throw new IllegalStateException("Simulated delivery failure for " + message.notificationId());
-        }
     }
 }
