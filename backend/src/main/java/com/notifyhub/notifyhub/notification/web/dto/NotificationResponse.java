@@ -1,5 +1,6 @@
 package com.notifyhub.notifyhub.notification.web.dto;
 
+import com.notifyhub.notifyhub.notification.domain.Branding;
 import com.notifyhub.notifyhub.notification.domain.Notification;
 import com.notifyhub.notifyhub.notification.domain.NotificationStatus;
 import java.time.LocalDateTime;
@@ -12,7 +13,8 @@ public record NotificationResponse(
         String body,
         NotificationStatus status,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt) {
+        LocalDateTime updatedAt,
+        Branding branding) {
 
     public static NotificationResponse from(Notification n) {
         return new NotificationResponse(
@@ -22,6 +24,7 @@ public record NotificationResponse(
                 n.getBody(),
                 n.getStatus(),
                 n.getCreatedAt(),
-                n.getUpdatedAt());
+                n.getUpdatedAt(),
+                n.getBranding());
     }
 }

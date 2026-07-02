@@ -16,5 +16,12 @@ public record CreateNotificationRequest(
         String subject,
 
         @NotBlank(message = "body is required")
-        String body) {
+        String body,
+
+        // Optional branding — any present opts into the rich HTML template.
+        @Size(max = 1024) String logoUrl,
+        @Size(max = 1024) String bannerUrl,
+        @Size(max = 255) String heading,
+        @Size(max = 150) String ctaText,
+        @Size(max = 1024) String ctaUrl) {
 }

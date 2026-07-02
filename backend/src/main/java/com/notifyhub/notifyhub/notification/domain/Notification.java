@@ -39,11 +39,30 @@ public class Notification {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "logo_url", length = 1024)
+    private String logoUrl;
+
+    @Column(name = "banner_url", length = 1024)
+    private String bannerUrl;
+
+    @Column(name = "heading", length = 255)
+    private String heading;
+
+    @Column(name = "cta_text", length = 150)
+    private String ctaText;
+
+    @Column(name = "cta_url", length = 1024)
+    private String ctaUrl;
+
     protected Notification() {
         // for JPA
     }
 
     public static Notification create(String toEmail, String subject, String body) {
+        return create(toEmail, subject, body, Branding.NONE);
+    }
+
+    public static Notification create(String toEmail, String subject, String body, Branding branding) {
         Notification n = new Notification();
         n.id = UUID.randomUUID();
         n.toEmail = toEmail;
@@ -51,7 +70,17 @@ public class Notification {
         n.body = body;
         n.status = NotificationStatus.PENDING;
         n.createdAt = LocalDateTime.now();
+        Branding b = branding == null ? Branding.NONE : branding;
+        n.logoUrl = b.logoUrl();
+        n.bannerUrl = b.bannerUrl();
+        n.heading = b.heading();
+        n.ctaText = b.ctaText();
+        n.ctaUrl = b.ctaUrl();
         return n;
+    }
+
+    public Branding getBranding() {
+        return new Branding(logoUrl, bannerUrl, heading, ctaText, ctaUrl);
     }
 
     public void markSent() {

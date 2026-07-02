@@ -2,6 +2,7 @@ package com.notifyhub.notifyhub.notification.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.notifyhub.notifyhub.notification.domain.Branding;
 import com.notifyhub.notifyhub.notification.domain.Notification;
 import com.notifyhub.notifyhub.notification.domain.OutboxEvent;
 import com.notifyhub.notifyhub.notification.messaging.DeliveryMessage;
@@ -33,14 +34,20 @@ public class NotificationService {
      */
     @Transactional
     public Notification create(String toEmail, String subject, String body) {
-        Notification notification = Notification.create(toEmail, subject, body);
+        return create(toEmail, subject, body, Branding.NONE);
+    }
+
+    @Transactional
+    public Notification create(String toEmail, String subject, String body, Branding branding) {
+        Notification notification = Notification.create(toEmail, subject, body, branding);
         notificationRepository.save(notification);
 
         DeliveryMessage message = new DeliveryMessage(
                 notification.getId(),
                 notification.getToEmail(),
                 notification.getSubject(),
-                notification.getBody());
+                notification.getBody(),
+                notification.getBranding());
         outboxEventRepository.save(
                 OutboxEvent.pending(DeliveryMessage.EVENT_TYPE, toJson(message)));
 

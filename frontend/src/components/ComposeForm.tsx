@@ -11,6 +11,12 @@ export function ComposeForm({ onCreated }: { onCreated: (n: Notification) => voi
   const [toEmail, setToEmail] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
+  const [showBranding, setShowBranding] = useState(false)
+  const [logoUrl, setLogoUrl] = useState('')
+  const [bannerUrl, setBannerUrl] = useState('')
+  const [heading, setHeading] = useState('')
+  const [ctaText, setCtaText] = useState('')
+  const [ctaUrl, setCtaUrl] = useState('')
   const create = useCreateNotification()
 
   const fieldErrors =
@@ -19,7 +25,7 @@ export function ComposeForm({ onCreated }: { onCreated: (n: Notification) => voi
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
     create.mutate(
-      { toEmail, subject, body },
+      { toEmail, subject, body, logoUrl, bannerUrl, heading, ctaText, ctaUrl },
       {
         onSuccess: (created) => {
           onCreated(created)
@@ -70,6 +76,46 @@ export function ComposeForm({ onCreated }: { onCreated: (n: Notification) => voi
             className="input resize-none"
           />
         </Field>
+
+        <div className="border-t border-line pt-2">
+          <button
+            type="button"
+            onClick={() => setShowBranding((v) => !v)}
+            className="flex w-full items-center justify-between text-xs font-medium text-ink-muted hover:text-ink"
+          >
+            Branding &amp; rich email
+            <span className="text-ink-faint">{showBranding ? '–' : '+'}</span>
+          </button>
+          {showBranding && (
+            <div className="mt-3 flex flex-col gap-3">
+              <p className="text-[11px] text-ink-faint">
+                Any field here renders a branded HTML email. Images are referenced by URL.
+              </p>
+              <Field label="Logo URL">
+                <input type="url" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)}
+                  placeholder="https://acme.com/logo.png" className="input" />
+              </Field>
+              <Field label="Banner URL">
+                <input type="url" value={bannerUrl} onChange={(e) => setBannerUrl(e.target.value)}
+                  placeholder="https://acme.com/banner.png" className="input" />
+              </Field>
+              <Field label="Heading">
+                <input type="text" value={heading} onChange={(e) => setHeading(e.target.value)}
+                  placeholder="Welcome to Acme" className="input" />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Button text">
+                  <input type="text" value={ctaText} onChange={(e) => setCtaText(e.target.value)}
+                    placeholder="Get started" className="input" />
+                </Field>
+                <Field label="Button URL">
+                  <input type="url" value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)}
+                    placeholder="https://acme.com" className="input" />
+                </Field>
+              </div>
+            </div>
+          )}
+        </div>
 
         {create.error && !fieldErrors && (
           <p className="text-xs text-failed">{create.error.message}</p>

@@ -1,5 +1,6 @@
 package com.notifyhub.notifyhub.notification.web;
 
+import com.notifyhub.notifyhub.notification.domain.Branding;
 import com.notifyhub.notifyhub.notification.domain.Notification;
 import com.notifyhub.notifyhub.notification.service.NotificationService;
 import com.notifyhub.notifyhub.notification.web.dto.CreateNotificationRequest;
@@ -29,7 +30,9 @@ public class NotificationController {
     @PostMapping
     public ResponseEntity<NotificationResponse> create(@Valid @RequestBody CreateNotificationRequest request) {
         Notification created = notificationService.create(
-                request.toEmail(), request.subject(), request.body());
+                request.toEmail(), request.subject(), request.body(),
+                Branding.of(request.logoUrl(), request.bannerUrl(), request.heading(),
+                        request.ctaText(), request.ctaUrl()));
         return ResponseEntity
                 .created(URI.create("/api/v1/notifications/" + created.getId()))
                 .body(NotificationResponse.from(created));

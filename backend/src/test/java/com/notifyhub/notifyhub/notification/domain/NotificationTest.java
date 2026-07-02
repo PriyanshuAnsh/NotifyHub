@@ -40,6 +40,27 @@ class NotificationTest {
     }
 
     @Test
+    void createWithoutBrandingHasEmptyBranding() {
+        Notification n = Notification.create("a@b.com", "Hi", "Body");
+        assertThat(n.getBranding().hasContent()).isFalse();
+    }
+
+    @Test
+    void createWithBrandingRoundTrips() {
+        Branding b = Branding.of("https://x/logo.png", "https://x/banner.png", "Welcome", "Go", "https://x");
+        Notification n = Notification.create("a@b.com", "Hi", "Body", b);
+
+        assertThat(n.getBranding()).isEqualTo(b);
+        assertThat(n.getBranding().hasCta()).isTrue();
+    }
+
+    @Test
+    void createTolueratesNullBranding() {
+        Notification n = Notification.create("a@b.com", "Hi", "Body", null);
+        assertThat(n.getBranding().hasContent()).isFalse();
+    }
+
+    @Test
     void statusEnumHasAllValues() {
         assertThat(NotificationStatus.valueOf("PENDING")).isEqualTo(NotificationStatus.PENDING);
         assertThat(NotificationStatus.values())

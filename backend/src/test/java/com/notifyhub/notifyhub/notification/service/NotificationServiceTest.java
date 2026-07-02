@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.notifyhub.notifyhub.notification.domain.Branding;
 import com.notifyhub.notifyhub.notification.domain.Notification;
 import com.notifyhub.notifyhub.notification.domain.NotificationStatus;
 import com.notifyhub.notifyhub.notification.domain.OutboxEvent;
@@ -52,6 +53,20 @@ class NotificationServiceTest {
                 .contains(created.getId().toString())
                 .contains("a@b.com")
                 .contains("Hi");
+    }
+
+    @Test
+    void createWithBrandingPersistsItAndPutsItInThePayload() {
+        Branding branding = Branding.of("https://x/logo.png", null, "Welcome", "Go", "https://x");
+
+        Notification created = service.create("a@b.com", "Hi", "Body", branding);
+
+        assertThat(created.getBranding()).isEqualTo(branding);
+        ArgumentCaptor<OutboxEvent> captor = ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxEventRepository).save(captor.capture());
+        assertThat(captor.getValue().getPayload())
+                .contains("https://x/logo.png")
+                .contains("Welcome");
     }
 
     @Test

@@ -1,5 +1,7 @@
 package com.notifyhub.notifyhub.notification.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -14,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.notifyhub.notifyhub.notification.domain.Branding;
 import com.notifyhub.notifyhub.notification.domain.Notification;
 import com.notifyhub.notifyhub.notification.service.NotificationNotFoundException;
 import com.notifyhub.notifyhub.notification.service.NotificationService;
@@ -22,6 +25,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
@@ -46,7 +50,7 @@ class NotificationControllerTest {
     @Test
     void createReturns201WithLocation() throws Exception {
         Notification n = Notification.create("a@b.com", "Hi", "Body");
-        when(service.create(anyString(), anyString(), anyString())).thenReturn(n);
+        when(service.create(anyString(), anyString(), anyString(), any(Branding.class))).thenReturn(n);
 
         mockMvc.perform(post("/api/v1/notifications")
                         .contentType("application/json")
@@ -56,7 +60,27 @@ class NotificationControllerTest {
                 .andExpect(jsonPath("$.id").value(n.getId().toString()))
                 .andExpect(jsonPath("$.status").value("PENDING"));
 
-        verify(service).create("a@b.com", "Hi", "Body");
+        verify(service).create(eq("a@b.com"), eq("Hi"), eq("Body"), any(Branding.class));
+    }
+
+    @Test
+    void createForwardsBrandingFields() throws Exception {
+        Notification n = Notification.create("a@b.com", "Hi", "Body");
+        when(service.create(anyString(), anyString(), anyString(), any(Branding.class))).thenReturn(n);
+
+        mockMvc.perform(post("/api/v1/notifications")
+                        .contentType("application/json")
+                        .content("{\"toEmail\":\"a@b.com\",\"subject\":\"Hi\",\"body\":\"Body\","
+                                + "\"logoUrl\":\"https://x/logo.png\",\"heading\":\"Welcome\","
+                                + "\"ctaText\":\"Go\",\"ctaUrl\":\"https://x\"}"))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<Branding> captor = ArgumentCaptor.forClass(Branding.class);
+        verify(service).create(eq("a@b.com"), eq("Hi"), eq("Body"), captor.capture());
+        Branding b = captor.getValue();
+        assertThat(b.logoUrl()).isEqualTo("https://x/logo.png");
+        assertThat(b.heading()).isEqualTo("Welcome");
+        assertThat(b.hasCta()).isTrue();
     }
 
     @Test
