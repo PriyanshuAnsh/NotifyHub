@@ -100,6 +100,7 @@
       <span class="chip">SSE</span>
       <span class="chip">API-key auth</span>
       <span class="chip">Gmail SMTP</span>
+      <span class="chip">Rich HTML email</span>
     </div>
   </div>
   <div class="cover-meta">
@@ -282,7 +283,8 @@
         each to RabbitMQ, and marks them <code>PUBLISHED</code>. A failed publish stays PENDING and is
         retried next tick — at-least-once.</li>
     <li><b>Consume &amp; deliver.</b> <code>NotificationDeliveryWorker</code> (@RabbitListener) receives the
-        task and calls the configured <code>DeliverySender</code> — a log mock or real Gmail SMTP.</li>
+        task and calls the configured <code>DeliverySender</code> — a log mock, or real Gmail SMTP that
+        renders a branded HTML email when branding is present (else plain text).</li>
     <li><b>Record result.</b> On success the notification becomes <span class="pill p-sent">SENT</span>;
         the outcome is pushed to any connected SSE clients.</li>
     <li><b>Failure path.</b> If the send throws, RabbitMQ retries up to 3× with backoff; still failing,
@@ -346,12 +348,13 @@
   <table>
     <thead><tr><th>Path</th><th>Contents</th></tr></thead>
     <tbody>
+      <tr><td class="mono">src/pages</td><td><b>Console</b> (<code>/</code>): pipeline + table + compose + feed. <b>Overview</b> (<code>/overview</code>): delivery lane</td></tr>
       <tr><td class="mono">src/lib</td><td>Types, API client (API-key + RFC-7807 aware), formatters</td></tr>
       <tr><td class="mono">src/hooks</td><td><code>useNotifications</code> (TanStack Query), <code>useNotificationStream</code> (SSE)</td></tr>
-      <tr><td class="mono">src/components</td><td>DeliveryLane (signature view), NotificationsTable, ComposeForm, LiveFeed, NavRail, StatusPill</td></tr>
+      <tr><td class="mono">src/components</td><td>NotificationPipeline (signature view), DeliveryLane, NotificationsTable, ComposeForm (with branding), LiveFeed, NavRail, StatusPill</td></tr>
     </tbody>
   </table>
-  <p class="muted" style="font-size:9pt">Stack: React 19 · Vite · TypeScript · Tailwind v4 · TanStack Query. Fonts: Space Grotesk, IBM Plex Sans/Mono.</p>
+  <p class="muted" style="font-size:9pt">Stack: React 19 · Vite · TypeScript · Tailwind v4 · TanStack Query · React Router. Fonts: Space Grotesk, IBM Plex Sans/Mono. The signature view is a per-notification pipeline that animates through stages as the status advances.</p>
 </section>
 
 <!-- ══════════ DATA + API ══════════ -->
@@ -369,6 +372,7 @@
         <div><b>body</b> text</div>
         <div><b>status</b> PENDING · SENT · FAILED</div>
         <div><b>created_at</b> · <b>updated_at</b> timestamp</div>
+        <div class="muted" style="margin-top:4px">+ branding (V2): logo_url, banner_url, heading, cta_text, cta_url</div>
       </div>
     </div>
     <div class="card">
@@ -422,7 +426,9 @@
         <div><b>smtp</b> — real email via Gmail (<code>smtp.gmail.com:587</code>, STARTTLS).</div>
       </div>
       <p class="muted" style="margin:6px 0 0; font-size:8.5pt">Gmail needs only <code>GMAIL_USER</code> +
-        <code>GMAIL_APP_PASSWORD</code> (a 2FA App Password); sent mail's From is that account.</p>
+        <code>GMAIL_APP_PASSWORD</code> (a 2FA App Password); sent mail's From is that account.
+        With optional branding (logo, banner, heading, CTA) the message is rendered as a responsive,
+        HTML-escaped email template; otherwise it is plain text. Images are referenced by URL.</p>
     </div>
   </div>
 
@@ -449,6 +455,10 @@
       <tr><td class="mono">799952f</td><td>Add <code>.env.example</code> template</td></tr>
       <tr><td class="mono">0206668</td><td>Require API key on all endpoints</td></tr>
       <tr><td class="mono">b0d9c7e → b038d86</td><td>SMTP hardening, then pin delivery to Gmail</td></tr>
+      <tr><td class="mono">a2aab67</td><td>JaCoCo + full unit-test suite (100% coverage) and CI on GitHub Actions</td></tr>
+      <tr><td class="mono">593e3f6</td><td>Per-notification delivery pipeline with animated stages (frontend)</td></tr>
+      <tr><td class="mono">3397cbb</td><td>Split into Console / Overview pages with routing</td></tr>
+      <tr><td class="mono">9b79dc9</td><td>Rich branded HTML emails (logo, banner, heading, CTA)</td></tr>
     </tbody>
   </table>
 
@@ -458,7 +468,9 @@
         <span class="pill p-sent">SENT</span>.</li>
     <li>Fail path: subject with "fail" → retries → DLQ → <span class="pill p-failed">FAILED</span>.</li>
     <li>Real email delivered through SMTP to a live inbox (verified against a mail catcher).</li>
+    <li>Branded HTML email rendered with logo, banner, heading, and CTA button.</li>
     <li>Auth matrix: no key → 401, wrong key → 401, valid key → 200/201, health public.</li>
+    <li>60+ unit tests at 100% coverage; CI green on every push.</li>
   </ul>
 
   <div class="foot">
